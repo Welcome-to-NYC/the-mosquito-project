@@ -1,0 +1,63 @@
+# W6 ablation: keep all three branches but freeze the LearnableFFT at its
+# Fourier-basis initialization. Tests whether learnability of the filters
+# matters, or just the prior they encode.
+data:
+  train_npz: data/processed/train.npz
+  val_npz: data/processed/val.npz
+  test_npz: data/processed/test.npz
+model:
+  name: physics_informed
+  kwargs:
+    n_filters: 64
+    kernel_size: 129
+    sample_rate: 5000
+    freq_range: [100.0, 1500.0]
+    f0_band: [200.0, 1000.0]
+    n_harmonics: 5
+    feature_dim: 32
+    dropout: 0.3
+    fft_stride: 4
+    enable_harmonic: true
+    enable_temporal: true
+    freeze_fft: true
+train:
+  seed: 42
+  batch_size: 128
+  epochs: 30
+  lr: 0.001
+  weight_decay: 0.0001
+  optimizer: adamw
+  grad_clip_norm: 1.0
+  num_workers: 2
+  sampler:
+    kind: weighted
+  scheduler:
+    kind: reduce_on_plateau
+    factor: 0.5
+    patience: 4
+    min_lr: 0.000001
+  early_stop:
+    enabled: true
+    metric: val_macro_f1
+    mode: max
+    patience: 8
+    min_delta: 0.0005
+  augment:
+    type: wingbeat
+    p_noise: 0.5
+    p_gain: 0.5
+    p_shift: 0.3
+    snr_db_min: 0.0
+    snr_db_max: 20.0
+    gain_min: 0.3
+    gain_max: 1.5
+    max_shift_frac: 0.1
+  class_weight: none
+exp:
+  name: pi_frozen_fft
+  output_dir: experiments
+  save_best_only: true
+wandb:
+  enabled: true
+  project: lyssa-mosquito
+  tags: [w12, ablation, frozen_fft]

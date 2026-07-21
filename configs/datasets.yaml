@@ -1,0 +1,133 @@
+# Dataset registry for the mosquito wingbeat classifier.
+#
+# Used by `python -m src.data.download`. Each entry describes:
+#   description : short human-readable summary
+#   role        : how this dataset is used in the class taxonomy
+#   confirmed   : whether the source URL/slug has been verified
+#   source.type : url | kaggle | zenodo | manual
+#   target_dir  : where the data lands under the project root
+#   expected_size_mb : rough compressed size for sanity checks
+#
+# When `confirmed: false`, the script prints the `notes` field instead of
+# downloading. Update that entry once the source is identified.
+
+datasets:
+
+  esc50:
+    description: "ESC-50 — 50-class environmental sound dataset (Piczak 2015)"
+    role: background_noise
+    confirmed: true
+    source:
+      type: url
+      url: https://github.com/karolpiczak/ESC-50/archive/refs/heads/master.zip
+      strip_top: true   # archive root is ESC-50-master/, flatten it
+    target_dir: data/raw/esc50
+    expected_size_mb: 600
+    license: "CC BY-NC 3.0 (attribution, non-commercial)"
+
+  wingbeats:
+    description: "Potamitis et al. Wingbeats — 6 mosquito species, optical sensor"
+    role: mosquito
+    confirmed: true
+    source:
+      type: kaggle
+      slug: potamitis/wingbeats
+    target_dir: data/raw/wingbeats
+    # Verified via `kaggle datasets list -s wingbeats` — actual size 4.24GB,
+    # not the 2GB the W1 spec quoted. Plan disk accordingly.
+    expected_size_mb: 4240
+    license: "see Kaggle page; research use cited via Potamitis 2018"
+
+  humbugdb:
+    description: "HumBugDB — 36 mosquito species + outdoor noise (NeurIPS 2021)"
+    role: mosquito_and_background
+    confirmed: true
+    source:
+      type: zenodo
+      record: 4904800
+      # Real file sizes are larger than user's spec stated (~4GB compressed total).
+      # Fetch metadata first; the four audio zips can be picked up separately or
+      # all together via --all.
+      files:
+        - neurips_2021_zenodo_0_0_1.csv
+        - humbugdb_neurips_2021_1.zip
+        - humbugdb_neurips_2021_2.zip
+        - humbugdb_neurips_2021_3.zip
+        - humbugdb_neurips_2021_4.zip
+    target_dir: data/raw/humbugdb
+    expected_size_mb: 4055
+    license: "CC BY 4.0"
+
+  insects:
+    description: "Non-mosquito insects on the same optical sensor (negative samples)"
+    role: non_mosquito_insect
+    confirmed: false
+    source:
+      type: manual
+      notes: |
+        The W1 spec referenced "Potamitis Insects Dataset" on Kaggle but no
+        such slug currently exists under the `potamitis` user (probed
+        potamitis/insects, potamitis/insect-sounds, potamitis/insect-wingbeats,
+        etc. — all 404).
+
+        Candidates to investigate:
+          - Search Kaggle for Potamitis-related insect optical recordings
+          - Check papers like Fanioudakis 2018 / InceptionFly 2022 supplementary
+          - Use HumBugDB's "non-mosquito" / outdoor-noise tracks as a proxy
+            (HumBugDB metadata splits target_class)
+
+        Until resolved, this entry is non-blocking — Wingbeats + HumBugDB +
+        ESC-50 already give a valid mosquito / non-mosquito / noise split.
+    target_dir: data/raw/insects
+    expected_size_mb: 500
+
+  fruitflies:
+    description: "Drosophila wingbeat signals (close-relative negative samples)"
+    role: non_mosquito_insect
+    confirmed: false
+    source:
+      type: manual
+      notes: |
+        InceptionFly paper (Front Plant Sci 13:812506, 2022) reports 22,744
+        Drosophila wingbeat signals (21,572 SWD + 1,172 D. melanogaster). The
+        data isn't on Kaggle as far as the W1 search found.
+
+        To resolve:
+          - Email/contact the InceptionFly authors for data access
+          - Check the paper's data availability statement
+          - Otherwise, plan to live without close-relative negatives for now;
+            generic insect signals + ESC-50 still cover the negative class.
+    target_dir: data/raw/fruitflies
+    expected_size_mb: 200
+
+  # Optional supplementary insect dataset — searched in W1 follow-up.
+  # Large (95 GB) and would need per-file Kaggle download (filter by species in the
+  # filename) to be practical. Kept here so the loader knows about it; do not pull
+  # until the W2 baseline confusion matrix shows we're confused on close-relative
+  # insects (fruit-fly type negatives). Then implement a partial-fetch routine.
+  insectsound1000:
+    description: "InsectSound1000 — 169k 4-channel anechoic recordings, 12 species (Sci Data 2024)"
+    role: non_mosquito_insect
+    confirmed: false
+    source:
+      type: manual
+      notes: |
+        Kaggle: hesi0ne/insectsound1000 (verified 2026-05-09, 95 GB). Species
+        include Bombus terrestris, Aphidoletes aphidimyza, Myzus persicae and
+        nine others. Each filename embeds the species, sample id, and channel:
+            <timestamp>_<species>_<id>_s<sample>_ch<0..3>.wav
+        High-quality (16 kHz, 32-bit, anechoic). Far more than we need but a
+        very strong source if we ever want to balance the non_mosquito_insect
+        class properly.
+
+        How to integrate (when we decide we need it):
+          1. List files via `kaggle datasets files hesi0ne/insectsound1000`
+          2. Filter to a subset of species relevant to our deployment
+             (Drosophila, Musca, Bombus suggested — fruitfly relatives + bee)
+          3. Download per-file via `kaggle datasets download -f <name>`
+          4. Add a metadata loader that parses the filename for species
+
+        Citation: Branding et al., Sci Data 11, 446 (2024).
+        Paper: https://www.nature.com/articles/s41597-024-03301-4
+    target_dir: data/raw/insectsound1000
+    expected_size_mb: 95000

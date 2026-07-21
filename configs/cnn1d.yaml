@@ -1,0 +1,49 @@
+# Fanioudakis 2018 1D-CNN baseline.
+# Run:   python -m src.training.train --config configs/cnn1d.yaml
+
+data:
+  train_npz: data/processed/train.npz
+  val_npz: data/processed/val.npz
+  test_npz: data/processed/test.npz
+
+model:
+  name: cnn_1d
+  kwargs:
+    channels: [16, 32, 64]
+    kernel_sizes: [7, 5, 3]
+    fc_hidden: 32
+    dropout: 0.3
+
+train:
+  seed: 42
+  batch_size: 128                # M1 Pro handles 128 comfortably for 11 K params
+  epochs: 25
+  lr: 0.001
+  weight_decay: 0.0001
+  optimizer: adamw
+  grad_clip_norm: 1.0
+  num_workers: 4
+  sampler:
+    kind: weighted               # WeightedRandomSampler — handles 600:1 imbalance
+  scheduler:
+    kind: reduce_on_plateau
+    factor: 0.5
+    patience: 4
+    min_lr: 0.000001
+  early_stop:
+    enabled: true
+    metric: val_macro_f1
+    mode: max
+    patience: 8
+    min_delta: 0.0005
+  class_weight: none             # sampler already balances batches; uniform CE
+
+exp:
+  name: cnn_1d_baseline
+  output_dir: experiments
+  save_best_only: true
+
+wandb:
+  enabled: true
+  project: lyssa-mosquito
+  tags: [w3, cnn_1d, baseline]
